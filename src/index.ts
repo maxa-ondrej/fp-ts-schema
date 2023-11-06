@@ -359,9 +359,16 @@ export const optional = <D>(decoder: Decoder<D>): Optional<D> => ({
   decoder,
 });
 
-export type MapObject<D extends ObjectRecord> = {
-  [K in keyof D]: D[K] extends Optional<infer T> ? Option<T> : D[K] extends Decoder<infer T> ? T : never;
-};
+type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
+type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+export declare type MapObject<D extends ObjectRecord> = PartialBy<
+  {
+    [K in keyof D]: D[K] extends Optional<infer T> ? Option<T> : D[K] extends Decoder<infer T> ? T : never;
+  },
+  {
+    [key in keyof D]: D[key] extends Optional<unknown> ? key : never;
+  }[keyof D]
+>;
 
 export const object = <D extends ObjectRecord>(struct: D) =>
   structuredObject(Object.entries(struct)
