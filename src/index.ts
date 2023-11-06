@@ -1,11 +1,13 @@
+import { either, option } from 'fp-ts';
+import { Either } from 'fp-ts/lib/Either';
+import type { Option } from 'fp-ts/lib/Option';
+
 interface Decode<D> {
   readonly forceDecode: (data: unknown) => D
 }
 
 export interface Decoder<D> {
-  readonly forceDecode: Decode<D>['forceDecode']
-  readonly decode: (data: unknown) => ReturnType<Decode<D>['forceDecode']> | null
-  readonly validate: (data: unknown) => ValidationResult<D>
+  readonly decode: (data: unknown) => Either<DecoderError, ReturnType<Decode<D>['forceDecode']>>
   readonly is: (data: unknown) => data is D
   readonly andThen: <T>(transformer: (data: D) => T) => Decoder<T>
 }
@@ -14,25 +16,14 @@ export type ValidationResult<D> =
   | { type: 'ok', data: D }
   | { type: 'error', error: DecoderError }
 
-export type Output<T extends Decoder<any>> = ReturnType<T['forceDecode']>
+export type Output<T extends Decoder<any>> = T extends Decoder<infer D> ? D : never
 
 export const createDecoder = <D>(decoder: Decode<D>): Decoder<D> => ({
-  ...decoder,
   decode: (data) => {
     try {
-      return decoder.forceDecode(data)
-    } catch {
-      return null
-    }
-  },
-  validate: (data) => {
-    try {
-      return { type: 'ok', data: decoder.forceDecode(data) }
+      return either.right(decoder.forceDecode(data));
     } catch (e) {
-      if (e instanceof DecoderError) {
-        return { type: 'error', error: e }
-      }
-      throw e
+      return either.left(e instanceof DecoderError ? e : new DecoderError('Invalid data'));
     }
   },
   is: (data): data is D => {
@@ -52,7 +43,7 @@ export const createDecoder = <D>(decoder: Decode<D>): Decoder<D> => ({
 
 export class DecoderError extends SyntaxError {
   path: string[]
-  constructor (message?: string, path: string[] = []) {
+  constructor(message?: string, path: string[] = []) {
     super(message)
     this.name = 'DecoderError'
     this.path = path
@@ -66,9 +57,17 @@ export class DecoderError extends SyntaxError {
   }
 }
 
+const forceDecode = <T>(decoder: Decoder<T>, data: unknown): T => {
+  const result = decoder.decode(data);
+  if (either.isRight(result)) {
+    return result.right;
+  }
+  throw result.left;
+}
+
 const forceDecodeWithPath = <T>(decoder: Decoder<T>, data: unknown, pathPart: string): T => {
   try {
-    return decoder.forceDecode(data)
+    return forceDecode(decoder, data)
   } catch (e) {
     if (e instanceof DecoderError) {
       throw new DecoderError(e.message, [pathPart, ...e.path])
@@ -93,13 +92,14 @@ export const checkDefined = (data: unknown): data is null | undefined => {
  * else, pass to the decoder where 'checkDefined'
  * fails only when data is undefined
  */
-export const nullable = <D> (decoder: Decoder<D>): Decoder<null | D> => oneOf(decoder, null_)
+export const nullable = <D>(decoder: Decoder<D>): Decoder<Option<D>> => oneOf(decoder, null_)
+  .andThen(option.fromNullable);
 
 /**
  * A decoder that always return the same value
  * Useful for fallback values
  */
-export const succeed = <T> (value: T): Decoder<T> => createDecoder({
+export const succeed = <T>(value: T): Decoder<T> => createDecoder({
   forceDecode: () => value
 })
 
@@ -116,14 +116,14 @@ const primitiveDecoder = <D>(
   dataType: string,
   condition: (data: unknown) => data is D
 ): Decoder<D> => createDecoder({
-    forceDecode: (data) => {
-      checkDefined(data)
-      if (!condition(data)) {
-        throw new DecoderError(`This is not ${dataType}: ${show(data)}`)
-      }
-      return data
+  forceDecode: (data) => {
+    checkDefined(data)
+    if (!condition(data)) {
+      throw new DecoderError(`This is not ${dataType}: ${show(data)}`)
     }
-  })
+    return data
+  }
+})
 
 //
 // Primitives
@@ -171,19 +171,46 @@ export const literal = <D extends string | number | boolean>(literal: D): Decode
 export const oneOf = <D extends readonly any[]>(
   ...decoders: { [K in keyof D]: Decoder<D[K]> }
 ): Decoder<D[number]> => createDecoder({
-    forceDecode: (data) => {
-      const errors = []
-      for (const decoder of decoders) {
-        try {
-          return decoder.forceDecode(data)
-        } catch (e: any) {
-          errors.push(e.message ?? 'Unknown error')
-        }
+  forceDecode: (data) => {
+    const errors = []
+    for (const decoder of decoders) {
+      const result = decoder.decode(data)
+      if (either.isRight(result)) {
+        return result.right
       }
-
-      throw new DecoderError(`None of the decoders worked:\n${show(errors)}`)
+      errors.push(result.left.message)
     }
-  })
+
+    throw new DecoderError(`None of the decoders worked:\n${show(errors)}`)
+  }
+})
+
+type AllOf<D extends Decoder<MapObject<any>>[]> = D extends [infer A, ...infer B]
+  ? (A extends Decoder<MapObject<any>>
+    ? (B extends Decoder<MapObject<any>>[]
+      ? Output<A> & AllOf<B> : unknown) : unknown)
+  : unknown;
+
+const deepMerge = <A extends Record<PropertyKey, unknown>, B extends Record<PropertyKey, unknown>>(a: A, b: B): A & B => {
+  const result = { ...a } as A & B;
+  for (const [keyRaw, value] of Object.entries(b)) {
+    const key = keyRaw as PropertyKey & keyof (A & B);
+    if (key in result) {
+      if (typeof value === 'object' && typeof result[key] === 'object') {
+        result[key] = deepMerge(result[key] as Record<string, unknown>, value as Record<string, unknown>) as any;
+      } else {
+        result[key] = value as any;
+      }
+    } else {
+      result[key] = value as any;
+    }
+  }
+  return result;
+}
+
+export const allOf = <D extends Decoder<MapObject<any>>[]>(...decoders: D) => createDecoder({
+  forceDecode: (data) => decoders.reduce((acc, decoder) => deepMerge(acc, forceDecode(decoder, data)), {}) as AllOf<D>,
+});
 
 export const literalUnion = <D extends ReadonlyArray<string | number | boolean>>(...decoders: D): Decoder<D[number]> =>
   oneOf(...decoders.map(literal))
@@ -199,7 +226,7 @@ export const regex = (regex: RegExp): Decoder<string> =>
 // Arrays
 //
 
-function checkArrayType (data: unknown): asserts data is any[] {
+function checkArrayType(data: unknown): asserts data is any[] {
   if (!Array.isArray(data)) throw new DecoderError(`This is not an array: ${show(data)}`)
 }
 
@@ -214,26 +241,26 @@ export const array = <D>(decoder: Decoder<D>): Decoder<D[]> => createDecoder({
 export const tuple = <D extends readonly unknown[]>(
   ...decoders: { [K in keyof D]: Decoder<D[K]> }
 ): Decoder<D> => createDecoder({
-    forceDecode: (data) => {
-      checkDefined(data)
-      checkArrayType(data)
-      if (decoders.length > data.length) {
-        throw new DecoderError(
-          `The tuple is not long enough. ${decoders.length} > ${data.length}`
-        )
-      }
-
-      return decoders.map((decoder, index) =>
-        forceDecodeWithPath(decoder, data[index], index.toString())
-      ) as any as D
+  forceDecode: (data) => {
+    checkDefined(data)
+    checkArrayType(data)
+    if (decoders.length > data.length) {
+      throw new DecoderError(
+        `The tuple is not long enough. ${decoders.length} > ${data.length}`
+      )
     }
-  })
+
+    return decoders.map((decoder, index) =>
+      forceDecodeWithPath(decoder, data[index], index.toString())
+    ) as any as D
+  }
+})
 
 //
 // Dicts
 //
 
-function checkDictType (data: unknown): asserts data is Record<string, unknown> {
+function checkDictType(data: unknown): asserts data is Record<string, unknown> {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     throw new DecoderError(`This is not an object: ${show(data)}`)
   } else if (Object.keys(data).some($ => typeof $ !== 'string')) {
@@ -252,7 +279,7 @@ export const record = <D>(decoder: Decoder<D>): Decoder<Record<string, D>> => cr
 })
 
 export const keyValuePairs = <D>(decoder: Decoder<D>): Decoder<Array<[string, D]>> => createDecoder({
-  forceDecode: (data) => Object.entries(record(decoder).forceDecode(data))
+  forceDecode: (data) => Object.entries(forceDecode(record(decoder), data))
 })
 
 //
@@ -260,66 +287,99 @@ export const keyValuePairs = <D>(decoder: Decoder<D>): Decoder<Array<[string, D]
 //
 
 export type DecoderRecord = Record<PropertyKey, Decoder<any>>
-type OmitEmptyPartial<D extends DecoderRecord> = { [K in keyof D]: Exclude<D[K], undefined> }
-type ObjectType<D extends DecoderRecord> = { [K in keyof D]: Output<D[K]> }
+type ObjectTypeRequired<D extends DecoderRecord> = { [K in keyof D]: Output<D[K]> }
+type ObjectTypeOptional<D extends DecoderRecord> = { [K in keyof D]: Option<Output<D[K]>> }
 
 const required = <D extends DecoderRecord>(
   struct: D
-): Decoder<ObjectType<D>> => createDecoder({
-    forceDecode: (data) => {
-      checkDictType(data)
+): Decoder<ObjectTypeRequired<D>> => createDecoder({
+  forceDecode: (data) => {
+    checkDictType(data)
 
-      const parsed: Partial<ObjectType<D>> = {}
+    const parsed: Partial<ObjectTypeRequired<D>> = {}
 
-      for (const key in struct) {
-        if (data[key] === undefined) throw new DecoderError(`Object missing required property '${key}'`)
-        parsed[key] = forceDecodeWithPath(struct[key], data[key], key)
-      }
-
-      return parsed as ObjectType<D>
+    for (const key in struct) {
+      if (data[key] === undefined) throw new DecoderError(`Object missing required property '${key}'`)
+      parsed[key] = forceDecodeWithPath(struct[key], data[key], key)
     }
-  })
+
+    return parsed as ObjectTypeRequired<D>
+  }
+})
 
 const partial = <D extends DecoderRecord>(
   struct: D
-): Decoder<Partial<ObjectType<D>>> => createDecoder({
-    forceDecode: (data) => {
-      checkDictType(data)
+): Decoder<ObjectTypeOptional<D>> => createDecoder({
+  forceDecode: (data) => {
+    checkDictType(data)
 
-      const parsed: Partial<ObjectType<D>> = {}
+    const parsed: Partial<ObjectTypeOptional<D>> = {}
 
-      for (const key in struct) {
-        if (data[key] !== undefined) {
-          parsed[key] = forceDecodeWithPath(struct[key], data[key], key)
-        }
+    for (const key in struct) {
+      if (data[key] === undefined) {
+        parsed[key] = option.none
+      } else {
+        parsed[key] = option.some(forceDecodeWithPath(struct[key], data[key], key))
       }
-
-      return parsed
     }
-  })
 
-export const object = <D extends DecoderRecord, E extends DecoderRecord>(
+    return parsed as ObjectTypeOptional<D>
+  }
+})
+
+export const structuredObject = <D extends DecoderRecord, E extends DecoderRecord>(
   struct: {
     required?: D
     optional?: E
   }
-): Decoder<OmitEmptyPartial<ObjectType<D> & Partial<ObjectType<E>>>> => createDecoder({
-    forceDecode: (data) => {
-      checkDefined(data)
+): Decoder<ObjectTypeRequired<D> & ObjectTypeOptional<E>> => createDecoder({
+  forceDecode: (data) => {
+    checkDefined(data)
 
-      const result: Partial<OmitEmptyPartial<ObjectType<D> & Partial<ObjectType<E>>>> = {}
-      if (struct.required !== undefined) {
-        Object.assign(result, required(struct.required).forceDecode(data))
-      }
-      if (struct.optional !== undefined) {
-        Object.assign(result, partial(struct.optional).forceDecode(data))
-      }
-      return result as OmitEmptyPartial<ObjectType<D> & Partial<ObjectType<E>>>
+    const result: Partial<ObjectTypeRequired<D> & ObjectTypeOptional<E>> = {}
+    if (struct.required !== undefined) {
+      Object.assign(result, forceDecode(required(struct.required), data))
     }
-  })
+    if (struct.optional !== undefined) {
+      Object.assign(result, forceDecode(partial(struct.optional), data))
+    }
+    return result as ObjectTypeRequired<D> & ObjectTypeOptional<E>
+  }
+})
+
+export type Optional<D> = {
+  optional: unknown;
+  decoder: Decoder<D>;
+};
+
+export type ObjectRecord = Record<PropertyKey, Optional<any> | Decoder<any>>;
+
+export const optional = <D>(decoder: Decoder<D>): Optional<D> => ({
+  optional: true,
+  decoder,
+});
+
+export type MapObject<D extends ObjectRecord> = {
+  [K in keyof D]: D[K] extends Optional<infer T> ? Option<T> : D[K] extends Decoder<infer T> ? T : never;
+};
+
+export const object = <D extends ObjectRecord>(struct: D) =>
+  structuredObject(Object.entries(struct)
+    .reduce((acc, [key, value]) => {
+      if ('optional' in value) {
+        acc.optional[key] = value.decoder;
+      } else {
+        acc.required[key] = value;
+      }
+      return acc;
+    }, {
+      optional: {} as DecoderRecord,
+      required: {} as DecoderRecord
+    }),
+  ).andThen((x) => x as MapObject<D>);
 
 export const recursive = <D>(decoder: () => Decoder<D>): Decoder<D> => createDecoder({
   forceDecode: (data) => {
-    return decoder().forceDecode(data)
+    return forceDecode(decoder(), data)
   }
 })

@@ -1,9 +1,18 @@
+import { either, option } from 'fp-ts'
 import * as D from '../src/index'
+import { pipe } from 'fp-ts/lib/function'
 
-const shouldBe = <T>(decoder: D.Decoder<T>, input: unknown, output: T): void =>
-  expect(decoder.forceDecode(input)).toStrictEqual(output)
-const shouldFail = <T>(decoder: D.Decoder<T>, value: unknown): void =>
-  expect(() => decoder.forceDecode(value)).toThrow(D.DecoderError)
+const shouldBe = <T>(decoder: D.Decoder<T>, input: unknown, output: T): void => {
+  const result = decoder.decode(input)
+  if (either.isLeft(result)) {
+    fail(`Decoder failed with error: ${result.left.message}`)
+  }
+  expect(result.right).toStrictEqual(output)
+}
+const shouldFail = <T>(decoder: D.Decoder<T>, input: unknown): void => {
+  const result = decoder.decode(input)
+  expect(either.isLeft(result)).toBe(true)
+}
 
 // Check defined
 test('checkDefined fails when given an undefined value', () => {
@@ -24,7 +33,7 @@ test('checkDefined succeeds when given a defined value', () => {
 const primitiveTest = <T>(
   name: string,
   decoder: D.Decoder<T>,
-  values: {success: T[], failure: unknown[]}
+  values: { success: T[], failure: unknown[] }
 ): void => {
   test(`${name} succeeds when given the correct type`, () => {
     values.success.forEach($ => shouldBe(decoder, $, $))
@@ -66,8 +75,8 @@ primitiveTest('D.boolean', D.boolean, {
 
 // Nullable
 test('D.nullable succeeds when given null or the correct type', () => {
-  shouldBe(D.nullable(D.string), null, null)
-  shouldBe(D.nullable(D.string), 'test', 'test')
+  shouldBe(D.nullable(D.string), null, option.none)
+  shouldBe(D.nullable(D.string), 'test', option.some('test'))
 })
 test('D.nullable fails when given undefined', () => {
   shouldFail(D.nullable(D.string), undefined)
@@ -107,8 +116,8 @@ test('D.literal fails when given null or undefined', () => {
 test('D.oneOf succeeds when given one of the permitted types', () => {
   shouldBe(D.oneOf(D.number, D.string), 'test', 'test')
   shouldBe(D.oneOf(D.number, D.string), 5, 5)
-  shouldBe(D.oneOf(D.number, D.nullable(D.string)), null, null)
-  shouldBe(D.oneOf(D.number, D.nullable(D.string)), 'test', 'test')
+  shouldBe(D.oneOf(D.number, D.nullable(D.string)), null, option.none)
+  shouldBe(D.oneOf(D.number, D.nullable(D.string)), 'test', option.some('test'))
   shouldBe(D.oneOf(D.number, D.nullable(D.string)), 5, 5)
 })
 test('D.oneOf fails when given a non-listed type', () => {
@@ -216,17 +225,17 @@ test('D.keyValuePairs fails when given null or undefined', () => {
 
 // Object
 test('D.object succeeds when it has all required fields', () => {
-  shouldBe(D.object({ required: { foo: D.string, bar: D.number } }), { foo: 'test', bar: 5 }, { foo: 'test', bar: 5 })
+  shouldBe(D.object({ foo: D.string, bar: D.number }), { foo: 'test', bar: 5 }, { foo: 'test', bar: 5 })
 })
 test('D.object succeeds and crops when given some of the optional fields', () => {
-  shouldBe(D.object({ optional: { foo: D.string } }), { foo: 'test', bar: 5 }, { foo: 'test' })
+  shouldBe(D.object({ foo: D.optional(D.string) }), { foo: 'test', bar: 5 }, { foo: option.some('test') })
 })
 test('D.object succeeds and crops when given some of the optional fields', () => {
-  shouldBe(D.object({ required: { foo: D.string } }), { foo: 'test', bar: 5 }, { foo: 'test' })
+  shouldBe(D.object({ foo: D.string }), { foo: 'test', bar: 5 }, { foo: 'test' })
 })
 test('D.object fails when given null or undefined', () => {
-  shouldFail(D.object({ optional: { foo: D.string } }), null)
-  shouldFail(D.object({ optional: { foo: D.string } }), undefined)
+  shouldFail(D.object({ foo: D.optional(D.string) }), null)
+  shouldFail(D.object({ foo: D.optional(D.string) }), undefined)
 })
 
 // Recursive
@@ -254,18 +263,14 @@ test('D.recursive succeeds when used correctly', () => {
   }
 
   const categoryDecoder: D.Decoder<Category> = D.object({
-    required: {
-      name: D.string,
-      subcategories: D.array(D.recursive(() => categoryDecoder))
-    }
+    name: D.string,
+    subcategories: D.array(D.recursive(() => categoryDecoder))
   })
 
   const categoryDecoder_: D.Decoder<Category> = D.recursive(() =>
     D.object({
-      required: {
-        name: D.string,
-        subcategories: D.array(categoryDecoder_)
-      }
+      name: D.string,
+      subcategories: D.array(categoryDecoder_)
     })
   )
 
@@ -293,26 +298,34 @@ test('D.recursive succeeds when used correctly', () => {
 
 // maybe
 test('Decoder.decode returns the value when the decoder succeeds', () => {
-  expect(D.string.decode('test')).toStrictEqual('test')
-  expect(D.array(D.string).decode(['test'])).toStrictEqual(['test'])
+  const result = D.string.decode('test')
+  if (either.isLeft(result)) {
+    fail(`Decoder failed with error: ${result.left.message}`)
+  }
+  expect(result.right).toStrictEqual('test')
+  const result2 = D.array(D.string).decode(['test'])
+  if (either.isLeft(result2)) {
+    fail(`Decoder failed with error: ${result2.left.message}`)
+  }
+  expect(result2.right).toStrictEqual(['test'])
 })
-test('Decoder.decode returns null when the decoder fails', () => {
-  expect(D.string.decode(5)).toStrictEqual(null)
-  expect(D.array(D.string).decode('test')).toStrictEqual(null)
+test('Decoder.decode returns error when the decoder fails', () => {
+  expect(either.isLeft(D.string.decode(5))).toStrictEqual(true)
+  expect(either.isLeft(D.array(D.string).decode('test'))).toStrictEqual(true)
 })
 
 // andThen
 test('Decoder.andThen changes the type after parsed', () => {
   shouldBe(D.number.andThen($ => $.toString()), 5, '5')
   const objectDecoder = D.object({
-    required: { a: D.number },
-    optional: { b: D.number }
+    a: D.number,
+    b: D.optional(D.number),
   }).andThen($ => ({
     a: $.a.toString(),
-    b: $.b?.toString()
+    b: pipe($.b, option.map($ => $.toString()))
   }))
-  shouldBe(objectDecoder, { a: 5, b: 10 }, { a: '5', b: '10' })
-  shouldBe(objectDecoder, { a: 5 }, { a: '5', b: undefined })
+  shouldBe(objectDecoder, { a: 5, b: 10 }, { a: '5', b: option.some('10') })
+  shouldBe(objectDecoder, { a: 5 }, { a: '5', b: option.none })
 })
 test('Decoder.andThen fails when the transformer fails', () => {
   shouldFail(D.unknown.andThen(_ => { throw new D.DecoderError() }), '')
@@ -326,88 +339,14 @@ test('Decoder.andThen fails when the decoder fails', () => {
 test('Decoder.is returns true for correct type', () => {
   expect(D.string.is('test')).toBe(true)
   expect(D.object({
-    required: { a: D.number },
-    optional: { b: D.number }
+    a: D.number,
+    b: D.optional(D.number)
   }).is({ a: 2 })).toBe(true)
 })
 test('Decoder.is returns false for wrong type', () => {
   expect(D.string.is(5)).toBe(false)
   expect(D.array(D.unknown).is({})).toBe(false)
   expect(D.unknown.is({})).toBe(true)
-})
-
-// validate
-test('Decoder.validate on invalid data returns error', () => {
-  expect(D.string.validate(5).type).toBe('error')
-})
-test('Decoder.validate on invalid data returns error', () => {
-  expect(D.string.validate(5)).toHaveProperty('error')
-})
-test('Decoder.validate on valid data returns ok', () => {
-  expect(D.string.validate('hi')).toStrictEqual({ type: 'ok', data: 'hi' })
-})
-
-test('DecodeError path of tuple is correct', () => {
-  const result = D.tuple(D.string, D.string).validate(["h1", 2]);
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("1: This is not a string: 2")
-  } else {
-    fail("Expected error")
-  }
-})
-
-test('DecodeError path of an array is correct', () => {
-  const result = D.array(D.string).validate(["h1", "h2", 3.14]);
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("2: This is not a string: 3.14")
-  } else {
-    fail("Expected error")
-  }
-})
-
-test('DecodeError path of an object required key is correct', () => {
-  const result = D.object({required: {name: D.string}}).validate({name: 1});
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("name: This is not a string: 1")
-  } else {
-    fail("Expected error")
-  }
-})
-
-test('DecodeError path of an object optional key is correct', () => {
-  const result = D.object({optional: {name: D.string}}).validate({name: 1});
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("name: This is not a string: 1")
-  } else {
-    fail("Expected error")
-  }
-})
-
-test('DecodeError path of a record is correct', () => {
-  const result = D.record(D.object({required: {name: D.string}})).validate({"charles": {name: 1}});
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("charles.name: This is not a string: 1")
-  } else {
-    fail("Expected error")
-  }
-})
-
-test('DecodeError path of a key value pair is correct', () => {
-  const result = D.keyValuePairs(D.object({required: {name: D.string}})).validate({"charles": {name: 1}});
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("charles.name: This is not a string: 1")
-  } else {
-    fail("Expected error")
-  }
-})
-
-test('DecodeError path of a nested object is correct', () => {
-  const result = D.object({optional: {sub: D.object({required: {name: D.string}})}}).validate({sub:{name: 1}});
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("sub.name: This is not a string: 1")
-  } else {
-    fail("Expected error")
-  }
 })
 
 test('DecodeError path of a recursive type is correct', () => {
@@ -432,24 +371,20 @@ test('DecodeError path of a recursive type is correct', () => {
   }
 
   const categoryDecoder: D.Decoder<Category> = D.object({
-    required: {
-      name: D.string,
-      subcategories: D.array(D.recursive(() => categoryDecoder))
-    }
+    name: D.string,
+    subcategories: D.array(D.recursive(() => categoryDecoder))
   })
 
   const categoryDecoder_: D.Decoder<Category> = D.recursive(() =>
     D.object({
-      required: {
-        name: D.string,
-        subcategories: D.array(categoryDecoder_)
-      }
+      name: D.string,
+      subcategories: D.array(categoryDecoder_)
     })
   )
 
-  const result = categoryDecoder_.validate(categories);
-  if (result.type === "error") {
-    expect(result.error.message).toStrictEqual("subcategories.0.subcategories.1.name: This is not a string: 1")
+  const result = categoryDecoder_.decode(categories);
+  if (either.isLeft(result)) {
+    expect(result.left.message).toStrictEqual("subcategories.0.subcategories.1.name: This is not a string: 1")
   } else {
     fail("Expected error")
   }

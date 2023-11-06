@@ -1,10 +1,17 @@
 {
-  "name": "schemawax",
-  "version": "1.0.12",
+  "name": "@majkit/fp-ts-schema",
+  "version": "1.1.0",
   "description": "Tiny typed data decoder",
-  "homepage": "https://github.com/michaljanocko/schemawax",
-  "repository": "git@github.com:michaljanocko/schemawax.git",
-  "author": "Michal Janočko <michal@janocko.com>",
+  "homepage": "https://github.com/maxa-ondrej/fp-ts-schema",
+  "repository": "git@github.com:maxa-ondrej/fp-ts-schema.git",
+  "author": {
+    "email": "ondrej.maxa11@gmail.com",
+    "name": "Ondřej Maxa",
+    "url": "https://majksa.cz"
+  },
+  "contributors": [
+    "Michal Janočko <michal@janocko.com>"
+  ],
   "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -34,5 +41,9 @@
     "typescript": "^4.2.4",
     "uglify-js": "^3.14.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "fp-ts": "^2.16.1",
+    "schemawax": "^1.0.12"
+  },
+  "packageManager": "pnpm@8.6.9"
 }

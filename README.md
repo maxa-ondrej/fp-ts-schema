@@ -1,17 +1,19 @@
-# 🧬 Schemawax
+# 🧬 Fp-Ts Schema
 
-Schemawax is a tool for creating typed decoders to help you get to the DNA of your data.
+Fp-Ts Schema is a fork of [schemawax](https://github.com/michaljanocko/schemawax) (a tool for creating typed decoders to help you get to the DNA of your data) implementing [fp-ts](https://gcanti.github.io/fp-ts/).
 
-To add `schemawax` to your project, do:
+To add `@majkit/fp-ts-schema` to your project, do:
 
 ``` bash
 # NPM
-npm install schemawax
+npm install @majkit/fp-ts-schema
+# Pnpm
+pnpm install @majkit/fp-ts-schema
 # Yarn
-yarn add schemawax
+yarn add @majkit/fp-ts-schema
 ```
 
-> It is only **1.2 kB**!
+> It is only **2.1 kB**!
 
 ## 📋 How to use
 
@@ -25,11 +27,9 @@ Build a decoder:
 import * as D from 'schemawax'
 
 const userDecoder = D.object({
-  required: {
-    name: D.string,
-    preferredName: D.nullable(D.string),
-    emailVerified: D.boolean
-  }
+  name: D.string,
+  preferredName: D.nullable(D.string),
+  emailVerified: D.boolean
 })
 
 // You can get the shape of the data into a type, use D.Output<…>
@@ -42,7 +42,7 @@ Get your data:
 // Usually, you would get the data using 'JSON.parse(response)' or something
 const data = {
   name: 'Bob',
-  preferredName: null,
+  preferredName: O.none,
   emailVerified: false
 }
 ```
@@ -65,28 +65,34 @@ You can either delve into the documentation (highly recommended) or check out so
 
 ## 📄 Full documentation
 
-- [Methods](#methods)
-  - [_Decoder_`.decode`](#decoderdecode)
-  - [_Decoder_`.forceDecode`](#decoderforcedecode)
-  - [_Decoder_`.is`](#decoderis)
-  - [_Decoder_`.validate`](#decodervalidate)
-- [Primitives](#primitives)
-  - [`D.string`](#dstring)
-  - [`D.number`](#dnumber)
-  - [`D.boolean`](#dboolean)
-  - [`D.literal`](#dliteral)
-  - [`D.literalUnion`](#dliteralunion)
-  - [`D.regex`](#dregex)
-  - 
-- [Combinators](#combinators)
-  - [`D.oneOf`](#doneof)
-  - [`D.tuple`](#dtuple)
-  - [`D.array`](#darray)
-  - [`D.record`](#drecord)
-  - [`D.keyValuePairs`](#dkeyvaluepairs)
-  - [`D.object`](#dobject)
-  - [`D.recursive`](#drecursive)
-- [_Decoder_`.andThen` & chaining](#decoderandthen--chaining)
+- [🧬 Fp-Ts Schema](#-fp-ts-schema)
+  - [📋 How to use](#-how-to-use)
+  - [📄 Full documentation](#-full-documentation)
+    - [Methods](#methods)
+      - [_Decoder_`.decode`](#decoderdecode)
+      - [_Decoder_`.is`](#decoderis)
+    - [Primitives](#primitives)
+      - [`D.string`](#dstring)
+      - [`D.number`](#dnumber)
+      - [`D.boolean`](#dboolean)
+      - [`D.literal`](#dliteral)
+      - [`D.literalUnion`](#dliteralunion)
+      - [`D.regex`](#dregex)
+      - [`D.nullable`](#dnullable)
+      - [`D.succeed`](#dsucceed)
+    - [Combinators](#combinators)
+      - [`D.oneOf`](#doneof)
+      - [`D.allOf`](#dallof)
+      - [`D.tuple`](#dtuple)
+      - [`D.array`](#darray)
+      - [`D.record`](#drecord)
+      - [`D.keyValuePairs`](#dkeyvaluepairs)
+      - [`D.object`](#dobject)
+      - [`D.structuredObject`](#dstructuredobject)
+      - [`D.recursive`](#drecursive)
+    - [_Decoder_`.andThen` \& chaining](#decoderandthen--chaining)
+  - [🍲 Recipes](#-recipes)
+  - [♻️ Similar projects and differences](#️-similar-projects-and-differences)
 
 ### Methods
 
@@ -94,32 +100,24 @@ Decoders can consume data through one of these methods:
 
 #### _Decoder_`.decode`
 
-_Decoder_`.decode` tries to decode data and if it fails, it returns `null` .
+This method returns an `Either<DecoderError,D>` type based on whether the decoder would fail or pass.
 
-This method returns a type of `D | null` where `D` is your type. If you do not want to have the `null` in there, see below.
+```ts
+D.string.decode('a string') // E.Right<'somestringvalue'>
 
-``` ts
-D.string.decode('a string') // 'a string'
-D.array(D.unknown).decode([]) // []
-D.array(D.number).decode([1, 2, 3]) // [1, 2, 3]
+D.string.decode(42) // E.Left<DecoderError>
 
-D.string.decode(42) // null
-D.array(D.unknown).decode('not an array') // null
-```
-
-#### _Decoder_`.forceDecode`
-
-This one works the same way as the previous one but throws a `DecoderError` when it fails. You might use it if you want a top-level nullable structure (unlikely) or you just want to throw errors.
-
-This method return a type of `D` which is the output type of your decoder.
-
-``` ts
-D.string.forceDecode('a string') // 'a string'
-D.array(D.unknown).forceDecode([]) // []
-D.array(D.number).forceDecode([1, 2, 3]) // [1, 2, 3]
-
-D.string.forceDecode(42) // throws DecoderError
-D.array(D.unknown).forceDecode('not an array') // throws DecoderError
+// Using it in practice
+const decoder = D.array(D.boolean)
+const data = [true, false]
+const validationResult = decoder.decode(data)
+if (either.isLeft) {
+    // TypeScript now knows that result has error so you can log the error message
+    console.error(validationResult.left.message)
+    return
+}
+// TypeScript now knows that result has data which is an array of booleans
+validationResult.right.map(console.log)
 ```
 
 #### _Decoder_`.is`
@@ -143,31 +141,6 @@ if (decoder.is(data)) {
 }
 ```
 
-#### _Decoder_`.validate`
-
-This method returns a discriminated union based on whether the decoder would fail or pass. It is useful to pattern match on the decoder result, getting the data or error without using a try catch clause.
-
-```ts
-D.string.validate('a string') // { type: 'ok', data: 'somestringvalue' }
-
-D.string.validate(42) // { type: 'error', error: DecoderError }
-
-// Using it in practice
-const decoder = D.array(D.boolean)
-const data = [true, false]
-const validationResult = decoder.validate(data)
-switch (validationResult.type) {
-  case 'ok':
-    // TypeScript now knows that result has data which is an array of booleans
-    validationResult.data.map(console.log)
-    break;
-  case 'error':
-    // TypeScript now knows that result has error so you can log the error message
-    console.log(validationResult.error.message)
-    break;
-}
-```
-
 ### Primitives
 
 All primitive decoders work the same
@@ -177,27 +150,26 @@ All primitive decoders work the same
 This is a simple decoder: if the input is a string, return the string, else fail (e.g. return `null` or throw an error).
 
 ```ts
-D.string.decode('a string') // 'a string'
+D.string.decode('a string') // E.Right<'a string'>
 
-D.string.decode(42) // null
-D.string.decode({}) // null
-D.string.forceDecode(false) // throws DecoderError
+D.string.decode(42) // E.Left<DecoderError>
+D.string.decode({}) // E.Left<DecoderError>
 ```
 
 #### `D.number`
 
 ```ts
-D.number.decode(42) // 42
+D.number.decode(42) // E.Right<42>
 
-D.number.decode('a string') // null
+D.number.decode('a string') // E.Left<DecoderError>
 ```
 
 #### `D.boolean`
 
 ```ts
-D.boolean.decode(true) // true
+D.boolean.decode(true) // E.Right<true>
 
-D.boolean.decode('not a boolean') // null
+D.boolean.decode('not a boolean') // E.Left<DecoderError>
 ```
 
 #### `D.literal`
@@ -205,12 +177,12 @@ D.boolean.decode('not a boolean') // null
 Literal decoder only decodes the exact same value (compared using `===`).
 
 ```ts
-D.literal('data').decode('data') // 'data'
-D.literal('error').decode('error') // 'error'
-D.literal(0).decode(0) // 0
+D.literal('data').decode('data') // E.Right<'data'>
+D.literal('error').decode('error') // E.Right<'error'>
+D.literal(0).decode(0) // E.Right<0>
 
-D.literal('data').decode('error') // null
-D.literal(0).decode(1) // null
+D.literal('data').decode('error') // E.Left<DecoderError>
+D.literal(0).decode(1) // E.Left<DecoderError>
 ```
 
 #### `D.literalUnion`
@@ -220,10 +192,10 @@ D.literal(0).decode(1) // null
 ```ts
 const decoder = D.literalUnion('data', 'error') // D.Decoder<'data' | 'error'>
 
-decoder.decode('data') // 'data'
-decoder.decode('error') // 'error'
+decoder.decode('data') // E.Right<'data'>
+decoder.decode('error') // E.Right<'error'>
 
-decoder.decode('not in there') // null
+decoder.decode('not in there') // E.Left<DecoderError>
 ```
 
 #### `D.regex`
@@ -233,28 +205,28 @@ decoder.decode('not in there') // null
 ```ts
 const decoder = D.regex(/^\d+$/)
 
-decoder.decode('138') // '138'
+decoder.decode('138') // E.Right<'138'>
 
-decoder.decode('Not nice') // null
+decoder.decode('Not nice') // E.Left<DecoderError>
 ```
 
 With transformation afterwards:
 
 ```ts
-decoder.decode('138').andThen(Number) // 138
+decoder.decode('138').andThen(Number) // E.Right<138>
 ```
 
 #### `D.nullable`
 
-If you wrap a decoder in `D.nullable`, then it wither decodes to its supposed type or falls back to `null`.
+If you wrap a decoder in `D.nullable`, then it wither decodes to its supposed type or falls back to `O.none`.
 
 ```ts
 const decoder = D.nullable(D.string)
 
-decoder.forceDecoder('hello') // 'hello'
-decoder.forceDecoder(null) // null
+decoder.decode('hello') // E.Right<O.some('hello')>
+decoder.decode(null) // E.Right<O.none>
 
-decoder.forceDecoder(15) // throws DecoderError
+decoder.decode(15) // E.Left<DecoderError>
 ```
 
 #### `D.succeed`
@@ -262,8 +234,8 @@ decoder.forceDecoder(15) // throws DecoderError
 This decoder always succesfully decodes to the value provided.
 
 ```ts
-D.succeed(true).decode('unnecessary string') // true
-D.succeed(1234).decode({}) // 1234
+D.succeed(true).decode('unnecessary string') // E.Right<true>
+D.succeed(1234).decode({}) // E.Right<1234>
 ```
 
 ### Combinators
@@ -275,10 +247,31 @@ This decoder tries all the decoders passed to it in order and returns the first 
 ```ts
 const decoder = D.oneOf(D.string, D.number)
 
-decoder.decode('a string') // 'a string'
-decoder.decode(42) // 42
+decoder.decode('a string') // E.Right<'a string'>
+decoder.decode(42) // E.Right<42>
 
-decoder.decode(false) // null
+decoder.decode(false) // E.Left<DecoderError>
+```
+
+#### `D.allOf`
+
+This decoder tries all the decoders passed to it in order and returns the first one that succeeds.
+
+```ts
+const decoder = D.allOf(
+  D.object({
+    a: D.string,
+  }),
+  D.object({
+    b: D.number,
+    c: D.boolean
+  })
+)
+
+decoder.decode({ a: 'a string', b: 132, c: true }) // E.Right<{ a: 'a string', b: 132, c: true }>
+
+decoder.decode({ a: 'a string' }) // E.Left<DecoderError>
+decoder.decode(false) // E.Left<DecoderError>
 ```
 
 #### `D.tuple`
@@ -299,9 +292,7 @@ D.object({ // More on this below
 `minmax` is now typed as `[number, number]` and not as `number[]`
 
 ```ts
-const [firstName, lastName] = D.tuple(D.string, D.string).forceDecode(['Michael', 'Jackson'])
-firstName === 'Michael' // true
-lastName === 'Jackson' // true
+D.tuple(D.string, D.string).decode(['Michael', 'Jackson']) // E.Right<['Michael', 'Jackson']>
 ```
 
 Longer arrays get stripped at the end to fit the length of the tuple. Shorter arrays with not enough elements fail to decode.
@@ -311,9 +302,9 @@ Longer arrays get stripped at the end to fit the length of the tuple. Shorter ar
 The array decoder takes another decoder with which it tries to decode a whole JSON array.
 
 ```ts
-D.array(D.number).decode([1, 2, 3]) // [1, 2, 3]
+D.array(D.number).decode([1, 2, 3]) // E.Right<[1, 2, 3]>
 
-D.array(D.number).decode([1, 2, 'not a number']) // null
+D.array(D.number).decode([1, 2, 'not a number']) // E.Left<DecoderError>
 ```
 
 #### `D.record`
@@ -362,6 +353,40 @@ const person = {
 }
 
 const personDecoder = D.object({
+  name: D.string,
+  age: D.number,
+  preferredName: D.optional(D.string)
+})
+
+personDecoder.forceDecode(person) // succeeds
+```
+
+> Careful, `null` is not a missing value! Null is an actual value which is supposed to be handled with `D.nullable(…)`
+
+Again, if you want the type of `personDecoder`, you can use `D.Output<…>`
+
+```ts
+type Person = D.Output<typeof personDecoder>
+
+// The above is now equivalent to this interface
+interface Person {
+  name: string
+  age: number
+  preferredName: Option<string>
+}
+```
+
+#### `D.structuredObject`
+
+This decoder is very similar to `D.object` but allows you to split your fields into `required` and `optional` sections:
+
+```ts
+const person = {
+  name: 'Sarah',
+  age: 25
+}
+
+const personDecoder = D.structuredObject({
   required: {
     name: D.string,
     age: D.number
@@ -496,7 +521,7 @@ You can use this for:
 
 ## ♻️ Similar projects and differences
 
-- [`io-ts`](https://github.com/gcanti/io-ts) – Schemawax is much much smaller and doesn't require the gigantic `fp-ts` library
+- [`io-ts`](https://github.com/gcanti/io-ts) – Schemawax is much much smaller
 - [`ts-auto-guard`](https://github.com/rhys-vdw/ts-auto-guard) – Takes the opposite approach and creates decoders from interfaces but requires an extra compilation step and tooling. Hard to use in non-TS projects
 - [`typescript-is`](https://github.com/woutervh-/typescript-is) – Similar to `ts-auto-guard` but is a transformer for an unofficial version of the TypeScript compiler. Impossible to use without TS
 - [`yup`](https://github.com/jquense/yup) – Very similar to Schemawax but has some predefined regexes and is **15× larger**! Anything `yup` can do should be possible with Schemawax
