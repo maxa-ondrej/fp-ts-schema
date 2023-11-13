@@ -55,7 +55,7 @@ jobs:
           command: pnpm run prepublish
       - run:
           name: Publish to NPM
-          command: pnpm run publish
+          command: pnpm publish
 
 workflows:
   tests:
