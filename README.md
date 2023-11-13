@@ -542,5 +542,5 @@ You can use this for:
 [coverage-image]: https://img.shields.io/codecov/c/github/maxa-ondrej/fp-ts-schema.svg
 [downloads-url]: http://npm-stat.com/charts.html?package=@majkit/fp-ts-schema
 [downloads-image]: http://img.shields.io/npm/dm/@majkit/fp-ts-schema.svg
-[build-url]: https://dl.circleci.com/status-badge/redirect/circleci/Y53CrcVgMSBZm7DzvzFD9k/6CGdxFoRmZ7cKyC2cSjxhV/tree/main
-[build-image]: https://dl.circleci.com/status-badge/img/circleci/Y53CrcVgMSBZm7DzvzFD9k/6CGdxFoRmZ7cKyC2cSjxhV/tree/main.svg?style=svg&circle-token=0d7ca468a509ff033b3767e2153156b221794e98
+[build-url]: https://circleci.com/gh/maxa-ondrej/fp-ts-schema/tree/main.svg
+[build-image]: https://circleci.com/gh/maxa-ondrej/fp-ts-schema/tree/main.svg?style=svg
