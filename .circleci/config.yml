@@ -1,0 +1,71 @@
+version: 2.1
+orbs:
+    codecov: codecov/codecov@3.3.0
+jobs:
+  test-unit:
+    docker:
+      - image: 'cimg/node:lts-browsers'
+    resource_class: large
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+        keys:
+          - 'v1-dependencies-{{ checksum "pnpm-lock.yaml" }}'
+          - v1-dependencies-
+      - run:
+        name: Install dependencies
+        command: pnpm install
+      - save_cache:
+        key: 'v1-dependencies-{{ checksum "pnpm-lock.yaml" }}'
+        paths:
+          - node_modules
+      - run:
+        name: Build library
+        command: pnpm run prepublish
+      - run:
+        name: Run unit tests
+        command: pnpm jest --ci --runInBand --reporters=default --reporters=jest-junit --coverage
+        environment:
+          JEST_JUNIT_OUTPUT_DIR: ./reports/
+          JEST_JUNIT_ADD_FILE_ATTRIBUTE: "true"
+      - store_test_results:
+          path: ./reports/
+      - codecov/upload
+  publish-to-npm:
+    docker:
+      - image: 'cimg/node:lts-browsers'
+    resource_class: large
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+        keys:
+          - 'v1-dependencies-{{ checksum "pnpm-lock.yaml" }}'
+          - v1-dependencies-
+      - run:
+        name: Install dependencies
+        command: pnpm install
+      - save_cache:
+        key: 'v1-dependencies-{{ checksum "pnpm-lock.yaml" }}'
+        paths:
+          - node_modules
+      - run:
+        name: Build library
+        command: pnpm run prepublish
+      - run:
+        name: Publish to NPM
+        command: pnpm run publish
+
+workflows:
+  tests:
+    jobs:
+      - test-unit
+  release:
+    jobs:
+      - test-unit
+      - publish-to-npm
+          filters:
+            branches:
+              only:
+                - main

@@ -1,9 +1,12 @@
 {
   "name": "@majkit/fp-ts-schema",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Tiny typed data decoder",
   "homepage": "https://github.com/maxa-ondrej/fp-ts-schema",
   "repository": "git@github.com:maxa-ondrej/fp-ts-schema.git",
+  "publishConfig": {
+    "access": "public"
+  },
   "author": {
     "email": "ondrej.maxa11@gmail.com",
     "name": "Ondřej Maxa",
@@ -37,13 +40,13 @@
     "eslint-plugin-node": "^11",
     "eslint-plugin-promise": "^4",
     "jest": "^26.6.3",
+    "jest-junit": "^16.0.0",
     "ts-jest": "^26.5.5",
     "typescript": "^4.2.4",
     "uglify-js": "^3.14.3"
   },
-  "dependencies": {
-    "fp-ts": "^2.16.1",
-    "schemawax": "^1.0.12"
+  "peerDependencies": {
+    "fp-ts": "^2.16.1"
   },
   "packageManager": "pnpm@8.6.9"
 }

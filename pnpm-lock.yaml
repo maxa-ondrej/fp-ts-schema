@@ -8,9 +8,6 @@ dependencies:
   fp-ts:
     specifier: ^2.16.1
     version: 2.16.1
-  schemawax:
-    specifier: ^1.0.12
-    version: 1.0.12
 
 devDependencies:
   '@babel/core':
@@ -43,6 +40,9 @@ devDependencies:
   jest:
     specifier: ^26.6.3
     version: 26.6.3
+  jest-junit:
+    specifier: ^16.0.0
+    version: 16.0.0
   ts-jest:
     specifier: ^26.5.5
     version: 26.5.5(jest@26.6.3)(typescript@4.2.4)
@@ -2741,6 +2741,16 @@ packages:
       - utf-8-validate
     dev: true
 
+  /jest-junit@16.0.0:
+    resolution: {integrity: sha512-A94mmw6NfJab4Fg/BlvVOUXzXgF0XIH6EmTgJ5NDPp4xoKq0Kr7sErb+4Xs9nZvu58pJojz5RFGpqnZYJTrRfQ==}
+    engines: {node: '>=10.12.0'}
+    dependencies:
+      mkdirp: 1.0.4
+      strip-ansi: 6.0.1
+      uuid: 8.3.2
+      xml: 1.0.1
+    dev: true
+
   /jest-leak-detector@26.6.2:
     resolution: {integrity: sha512-i4xlXpsVSMeKvg2cEKdfhh0H39qlJlP5Ex1yQxwF9ubahboQYMgTtz5oML35AVA3B4Eu+YsmwaiKVev9KCvLxg==}
     engines: {node: '>= 10.14.2'}
@@ -3793,10 +3803,6 @@ packages:
       xmlchars: 2.2.0
     dev: true
 
-  /schemawax@1.0.12:
-    resolution: {integrity: sha512-1N6jkJHStJs24CRSb5UGgye83wxQAx3bOeJ8zaJ+QXBcUyd+xxSgZ6H9GlpYxqlddeXgOmamxS+afYZGNKWsCw==}
-    dev: false
-
   /semver@5.7.2:
     resolution: {integrity: sha512-cBznnQ9KjJqU67B52RMC65CMarK2600WFnbkcaiwWq3xy/5haFJlshgnpjovMVJ+Hff49d8GEn0b87C5pDQ10g==}
     hasBin: true
@@ -4339,7 +4345,6 @@ packages:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
     hasBin: true
     dev: true
-    optional: true
 
   /v8-compile-cache@2.4.0:
     resolution: {integrity: sha512-ocyWc3bAHBB/guyqJQVI5o4BZkPhznPYUG2ea80Gond/BgNWpap8TOmLSeeQG7bnh2KMISxskdADG59j7zruhw==}
@@ -4473,6 +4478,10 @@ packages:
 
   /xml-name-validator@3.0.0:
     resolution: {integrity: sha512-A5CUptxDsvxKJEU3yO6DuWBSJz/qizqzJKOMIfUJHETbBw/sFaDxgd6fxm1ewUaM0jZ444Fc5vC5ROYurg/4Pw==}
+    dev: true
+
+  /xml@1.0.1:
+    resolution: {integrity: sha512-huCv9IH9Tcf95zuYCsQraZtWnJvBtLVE0QHMOs8bWyZAFZNDcYjsPq1nEx8jKA9y+Beo9v+7OBPRisQTjinQMw==}
     dev: true
 
   /xmlchars@2.2.0:

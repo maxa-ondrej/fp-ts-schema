@@ -1,6 +1,13 @@
-import { either, option } from 'fp-ts';
-import { Either } from 'fp-ts/lib/Either';
+import type { Either, Right } from 'fp-ts/lib/Either';
 import type { Option } from 'fp-ts/lib/Option';
+
+// fp-ts adapters
+const right = <A>(a: A): Either<never, A> => ({ _tag: 'Right', right: a })
+const left = <E>(l: E): Either<E, never> => ({ _tag: 'Left', left: l })
+const isRight = <E, A>(fa: Either<E, A>): fa is Right<A> => fa._tag === 'Right'
+const none: Option<never> = { _tag: 'None' }
+const some = <A>(a: A): Option<A> => ({ _tag: 'Some', value: a })
+const fromNullable = <A>(a: A | null | undefined): Option<A> => a == null ? none : some(a)
 
 interface Decode<D> {
   readonly forceDecode: (data: unknown) => D
@@ -21,9 +28,9 @@ export type Output<T extends Decoder<any>> = T extends Decoder<infer D> ? D : ne
 export const createDecoder = <D>(decoder: Decode<D>): Decoder<D> => ({
   decode: (data) => {
     try {
-      return either.right(decoder.forceDecode(data));
+      return right(decoder.forceDecode(data));
     } catch (e) {
-      return either.left(e instanceof DecoderError ? e : new DecoderError('Invalid data'));
+      return left(e instanceof DecoderError ? e : new DecoderError('Invalid data'));
     }
   },
   is: (data): data is D => {
@@ -59,7 +66,7 @@ export class DecoderError extends SyntaxError {
 
 const forceDecode = <T>(decoder: Decoder<T>, data: unknown): T => {
   const result = decoder.decode(data);
-  if (either.isRight(result)) {
+  if (isRight(result)) {
     return result.right;
   }
   throw result.left;
@@ -93,7 +100,7 @@ export const checkDefined = (data: unknown): data is null | undefined => {
  * fails only when data is undefined
  */
 export const nullable = <D>(decoder: Decoder<D>): Decoder<Option<D>> => oneOf(decoder, null_)
-  .andThen(option.fromNullable);
+  .andThen(fromNullable);
 
 /**
  * A decoder that always return the same value
@@ -175,7 +182,7 @@ export const oneOf = <D extends readonly any[]>(
     const errors = []
     for (const decoder of decoders) {
       const result = decoder.decode(data)
-      if (either.isRight(result)) {
+      if (isRight(result)) {
         return result.right
       }
       errors.push(result.left.message)
@@ -317,9 +324,9 @@ const partial = <D extends DecoderRecord>(
 
     for (const key in struct) {
       if (data[key] === undefined) {
-        parsed[key] = option.none
+        parsed[key] = none
       } else {
-        parsed[key] = option.some(forceDecodeWithPath(struct[key], data[key], key))
+        parsed[key] = some(forceDecodeWithPath(struct[key], data[key], key))
       }
     }
 
@@ -383,7 +390,9 @@ export const object = <D extends ObjectRecord>(struct: D) =>
       optional: {} as DecoderRecord,
       required: {} as DecoderRecord
     }),
-  ).andThen((x) => x as MapObject<D>);
+  ).andThen((x) => x as {
+    [K in keyof D]: D[K] extends Optional<infer T> ? Option<T> : D[K] extends Decoder<infer T> ? T : never;
+  });
 
 export const recursive = <D>(decoder: () => Decoder<D>): Decoder<D> => createDecoder({
   forceDecode: (data) => {
