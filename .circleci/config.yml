@@ -55,21 +55,23 @@ jobs:
           command: pnpm run prepublish
       - run:
           name: Publish to NPM
-          command: pnpm publish
+          command: |
+            npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
+            pnpm publish
 
 workflows:
   tests:
     jobs:
       - test-unit
+    filters:
+      branches:
+        ignore:
+          - main
   release:
     jobs:
-      - test-unit:
-          filters:
-            branches:
-              ignore:
-                - main
-      - publish-to-npm:
-          filters:
-            branches:
-              only:
-                - main
+      - test-unit
+      - publish-to-npm
+    filters:
+      branches:
+        only:
+          - main
