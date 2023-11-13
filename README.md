@@ -1,5 +1,12 @@
 # 🧬 Fp-Ts Schema
 
+[![NPM][npm-image]][npm-url]
+[![License][license-image]][license-url]
+[![Coverage][coverage-image]][coverage-url]
+[![Coverage][coverage-image]][coverage-url]
+[![Downloads][downloads-image]][downloads-url]
+[![Build][build-image]][build-url]
+
 Fp-Ts Schema is a fork of [schemawax](https://github.com/michaljanocko/schemawax) (a tool for creating typed decoders to help you get to the DNA of your data) implementing [fp-ts](https://gcanti.github.io/fp-ts/).
 
 To add `@majkit/fp-ts-schema` to your project, do:
@@ -527,3 +534,14 @@ You can use this for:
 - [`yup`](https://github.com/jquense/yup) – Very similar to Schemawax but has some predefined regexes and is **15× larger**! Anything `yup` can do should be possible with Schemawax
 - [`zod`](https://github.com/colinhacks/zod) – Again, very similar to Schemawax but better than yup. It is ~10 kB and it is more complex than Schemawax but offers more pre-built functions (but nothing that can't be done with Schemawax).
 - [`ok-computer`](https://github.com/richardscarrott/ok-computer) – Very simple, only made out of pure functions (which is nice) but there is no type safety or inference
+
+[npm-url]: https://npmjs.org/package/@majkit/fp-ts-schema
+[npm-image]: https://img.shields.io/npm/v/@majkit/fp-ts-schema.svg
+[license-url]: LICENSE
+[license-image]: http://img.shields.io/npm/l/@majkit/fp-ts-schema.svg
+[coverage-url]: https://codecov.io/gh/maxa-ondrej/fp-ts-schema
+[coverage-image]: https://img.shields.io/codecov/c/github/maxa-ondrej/fp-ts-schema.svg
+[downloads-url]: http://npm-stat.com/charts.html?package=@majkit/fp-ts-schema
+[downloads-image]: http://img.shields.io/npm/dm/@majkit/fp-ts-schema.svg
+[build-url]: https://dl.circleci.com/status-badge/redirect/circleci/Y53CrcVgMSBZm7DzvzFD9k/6CGdxFoRmZ7cKyC2cSjxhV/tree/main
+[build-image]: https://dl.circleci.com/status-badge/img/circleci/Y53CrcVgMSBZm7DzvzFD9k/6CGdxFoRmZ7cKyC2cSjxhV/tree/main.svg?style=svg&circle-token=0d7ca468a509ff033b3767e2153156b221794e98
