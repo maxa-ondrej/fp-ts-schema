@@ -2,7 +2,7 @@ version: 2.1
 orbs:
     codecov: codecov/codecov@3.3.0
 jobs:
-  test-unit:
+  test:
     docker:
       - image: 'cimg/node:lts-browsers'
     resource_class: large
@@ -32,7 +32,7 @@ jobs:
       - store_test_results:
           path: ./reports/
       - codecov/upload
-  publish-to-npm:
+  publish:
     docker:
       - image: 'cimg/node:lts-browsers'
     resource_class: large
@@ -60,21 +60,12 @@ jobs:
             pnpm publish
 
 workflows:
-  tests:
+  main:
     jobs:
-      - test-unit:
-          filters:
-            branches:
-              ignore:
-                - main
-  release:
-    jobs:
-      - test-unit:
-          filters:
-            branches:
-              only:
-                - main
-      - publish-to-npm:
+      - test
+      - publish:
+          requires:
+            - test
           filters:
             branches:
               only:
