@@ -63,7 +63,11 @@ workflows:
       - test-unit
   release:
     jobs:
-      - test-unit
+      - test-unit:
+          filters:
+            branches:
+              ignore:
+                - main
       - publish-to-npm:
           filters:
             branches:
