@@ -270,7 +270,7 @@ export const tuple = <D extends readonly unknown[]>(
 function checkDictType(data: unknown): asserts data is Record<string, unknown> {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) {
     throw new DecoderError(`This is not an object: ${show(data)}`)
-  } else if (Object.keys(data).some($ => typeof $ !== 'string')) {
+  } else if (Object.keys(data).some($ => typeof $ !== 'string') || Object.getOwnPropertySymbols(data).length > 0) {
     throw new DecoderError(`Not all keys in this object are strings: ${show(data)}`)
   }
 }

@@ -1,6 +1,7 @@
 import { either, option } from 'fp-ts'
 import * as D from '../src/index'
 import { pipe } from 'fp-ts/lib/function'
+import { Either } from 'fp-ts/lib/Either'
 
 const shouldBe = <T>(decoder: D.Decoder<T>, input: unknown, output: T): void => {
   const result = decoder.decode(input)
@@ -11,6 +12,9 @@ const shouldBe = <T>(decoder: D.Decoder<T>, input: unknown, output: T): void => 
 }
 const shouldFail = <T>(decoder: D.Decoder<T>, input: unknown): void => {
   const result = decoder.decode(input)
+  if (either.isRight(result)) {
+    fail(`Decoder succeeded with value: ${JSON.stringify(result.right)}`)
+  }
   expect(either.isLeft(result)).toBe(true)
 }
 
@@ -46,6 +50,35 @@ const primitiveTest = <T>(
     shouldFail(decoder, undefined)
   })
 }
+
+// Bad decoder
+test('D.badDecoder fails with the given error', () => {
+  const badDecoder = D.createDecoder({
+    forceDecode: () => {
+      throw new Error('test')
+    }
+  });
+  const result = badDecoder.decode(5)
+  if (either.isRight(result)) {
+    fail(`Decoder succeeded with value: ${JSON.stringify(result.right)}`)
+  }
+  expect(either.isLeft(result)).toBe(true)
+  expect(result.left.message).toBe('Invalid data')
+});
+test('D.badDecoder inside array fails with the given error', () => {
+  const badDecoder: D.Decoder<never> = {
+    decode: () => either.left(new Error('test')) as Either<D.DecoderError, never>,
+    is: (data): data is never => false,
+    andThen: () => D.never,
+  } as const;
+  const arr = D.array(badDecoder)
+  const result = arr.decode([5])
+  if (either.isRight(result)) {
+    fail(`Decoder succeeded with value: ${JSON.stringify(result.right)}`)
+  }
+  expect(either.isLeft(result)).toBe(true)
+  expect(result.left.message).toBe('Invalid data')
+});
 
 // Null
 test(`D.null succeeds when given a null`, () => {
@@ -88,6 +121,13 @@ test('D.succeed succeeds with the given value', () => {
   shouldBe(D.oneOf(D.string, D.succeed("test")), NaN, 'test')
 })
 
+// Never
+test('D.never fails with the given value', () => {
+  shouldFail(D.never, null)
+  shouldFail(D.oneOf(D.string, D.never), NaN)
+  shouldBe(D.oneOf(D.string, D.never), 'test', 'test')
+})
+
 // Literal
 test('D.literal succeeds when given the correct type', () => {
   shouldBe(D.literal('test'), 'test', 'test')
@@ -124,6 +164,19 @@ test('D.oneOf fails when given a non-listed type', () => {
   shouldFail(D.oneOf(D.string), 5)
   shouldFail(D.oneOf(D.string, D.number), undefined)
   shouldFail(D.oneOf(D.string, D.number), null)
+})
+
+// All of
+test('D.allOf succeeds when given one all needed', () => {
+  shouldBe(D.allOf(D.object({ a: D.number }), D.object({ b: D.string })), { a: 5, b: 'test' }, { a: 5, b: 'test' })
+  shouldBe(D.allOf(D.object({ a: D.object({ a: D.number }) }), D.object({ b: D.string })), { a: { a: 5 }, b: 'test' }, { a: { a: 5 }, b: 'test' })
+  shouldBe(D.allOf(D.object({ a: D.object({ a: D.number, c: D.boolean }) }), D.object({ a: D.object({ b: D.string, c: D.boolean }) })), { a: { a: 5, b: 'test', c: true } }, { a: { a: 5, b: 'test', c: true } })
+})
+test('D.allOf fails when at least one is missing', () => {
+  shouldFail(D.allOf(D.object({ a: D.number }), D.object({ b: D.string })), { a: 5 })
+  shouldFail(D.allOf(D.object({ a: D.number }), D.object({ b: D.string })), { b: 'test' })
+  shouldFail(D.allOf(D.object({ a: D.number }), D.object({ b: D.string })), undefined)
+  shouldFail(D.allOf(D.object({ a: D.number }), D.object({ b: D.string })), null)
 })
 
 // Literal union
@@ -200,6 +253,7 @@ test('D.record succeeds when given a record of the right type', () => {
 })
 test('D.record fails when given a record of the wrong type', () => {
   shouldFail(D.record(D.number), { foo: 1, bar: 'test' })
+  shouldFail(D.record(D.unknown), { [Symbol()]: 1 })
   shouldFail(D.record(D.unknown), [])
 })
 test('D.record fails when given null or undefined', () => {
