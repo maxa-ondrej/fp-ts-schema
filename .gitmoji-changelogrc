@@ -1,0 +1,7 @@
+{
+  "project": {
+    "name": "@majkit/fp-ts-schema",
+    "description": "Tiny typed data decoder",
+    "version": "1.1.6"
+  }
+}
