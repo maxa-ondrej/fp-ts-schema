@@ -11,6 +11,8 @@ Fp-Ts Schema is a fork of [schemawax](https://github.com/michaljanocko/schemawax
 To add `@majkit/fp-ts-schema` to your project, do:
 
 ``` bash
+# Bun
+bun add @majkit/fp-ts-schema
 # NPM
 npm install @majkit/fp-ts-schema
 # Pnpm
