@@ -1,5 +1,13 @@
 # Changelog
 
+<a name="1.1.7"></a>
+## 1.1.7 (2023-11-28)
+
+### Miscellaneous
+
+- 📝 bun installation guide [[78d3ee7](https://github.com/maxa-ondrej/fp-ts-schema/commit/78d3ee7f328ab11e32fa0a57e695f80f4ee8e27b)]
+
+
 <a name="1.1.6"></a>
 ## 1.1.6 (2023-11-25)
 
