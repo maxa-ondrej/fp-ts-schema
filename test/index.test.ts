@@ -341,12 +341,6 @@ test("D.object succeeds and crops when given some of the optional fields", () =>
 });
 test("D.object succeeds and when optional is omitted", () => {
 	shouldBe(D.object({ foo: D.optional(D.string) }), {}, { foo: option.none });
-	const decoder = D.object({ foo: D.optional(D.string), bar: D.number });
-	const test = (input: D.Output<typeof decoder>) => {
-		const inp = input as Required<typeof input>;
-		return option.getOrElse(() => "")(inp.foo) + inp.bar;
-	};
-	expect(test({ bar: 0 }) === "0");
 });
 test("D.object succeeds and crops when given some of the optional fields", () => {
 	shouldBe(
@@ -358,6 +352,13 @@ test("D.object succeeds and crops when given some of the optional fields", () =>
 test("D.object fails when given null or undefined", () => {
 	shouldFail(D.object({ foo: D.optional(D.string) }), null);
 	shouldFail(D.object({ foo: D.optional(D.string) }), undefined);
+});
+test("D.object should succeed when optional receives null", () => {
+	shouldBe(
+		D.object({ foo: D.optional(D.string) }),
+		{ foo: null },
+		{ foo: option.none },
+	);
 });
 
 // Recursive

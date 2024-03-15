@@ -394,7 +394,7 @@ const partial = <D extends DecoderRecord>(
 			const parsed: Partial<ObjectTypeOptional<D>> = {};
 
 			for (const key in struct) {
-				if (data[key] === undefined) {
+				if (data[key] === undefined || data[key] === null) {
 					parsed[key] = none;
 				} else {
 					parsed[key] = some(forceDecodeWithPath(struct[key], data[key], key));
